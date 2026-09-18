@@ -1,0 +1,50 @@
+name: Build Linux Kernel
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ master ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Maximize build space
+        uses: easimon/maximize-build-space@master
+        with:
+          root-reserve-mb: 4096
+          swap-size-mb: 1024
+          remove-dotnet: 'true'
+          remove-android: 'true'
+          remove-haskell: 'true'
+          remove-codeql: 'true'
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential \
+            libncurses-dev bison flex libssl-dev libelf-dev \
+            bc dwarves rsync cpio kmod
+
+      - name: Configure kernel
+        run: |
+          make defconfig
+
+      - name: Compile kernel
+        run: |
+          make -j$(nproc) 2>&1 | tee build.log
+
+      - name: Upload kernel image
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-kernel-image
+          path: |
+            arch/x86/boot/bzImage
+            vmlinux
+          retention-days: 7
